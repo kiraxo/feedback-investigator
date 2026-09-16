@@ -17,7 +17,6 @@ The repository includes:
 * Optional Slack and Gmail notifications in n8n
 * A complete Docker environment
 
-> This is an independent portfolio project inspired by commerce operations. It is not connected to Sticker Mule systems, and all included customer feedback is fictional.
 
 ---
 
