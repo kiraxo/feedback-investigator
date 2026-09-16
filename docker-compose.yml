@@ -38,5 +38,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: feedback-investigator-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   feedback_investigator_postgres_data:
