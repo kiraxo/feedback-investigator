@@ -1,328 +1,259 @@
-# 🔎 Feedback Investigator
+# Feedback Investigator
 
-### Evidence-based customer feedback investigation built with Go, GraphQL, PostgreSQL, TypeScript, n8n, and AI
+**Turn scattered customer feedback into evidence-backed investigation tasks.**
 
-Feedback Investigator turns customer reviews and support messages into clear, evidence-backed investigation tasks.
+![Go](https://img.shields.io/badge/Go-00ADD8?logo=go\&logoColor=white)
+![GraphQL](https://img.shields.io/badge/GraphQL-E10098?logo=graphql\&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql\&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript\&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?logo=react\&logoColor=61DAFB)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker\&logoColor=white)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?logo=n8n\&logoColor=white)
 
-It classifies feedback, validates evidence against the original messages, detects recurring problems, compares current and previous periods, prioritizes investigation tasks, and preserves completed runs in PostgreSQL.
+## The problem
 
-The repository includes:
+I built Feedback Investigator around a simple ecommerce problem: customer messages are easy to read one by one, but difficult to understand as a pattern.
 
+Imagine Mark runs a store selling custom printed products.
+
+His team receives reviews and support tickets about late deliveries, damaged packages, print quality, and other issues. Someone has to read every message, remember whether similar complaints appeared before, decide which problems matter, and gather evidence before another team can investigate.
+
+That process becomes slow and inconsistent as the number of messages grows.
+
+Mark does not only need a summary saying that some customers are unhappy. He needs answers to practical questions:
+
+* Which problems are happening repeatedly?
+* Which products are affected?
+* Is an issue increasing or decreasing?
+* Which customer messages support the finding?
+* What should the team investigate first?
+
+Feedback Investigator turns a supplied feedback dataset into a reviewable investigation queue.
+
+## What happens during an investigation
+
+When the user starts a run, the system:
+
+1. Classifies every customer message by topic and severity.
+2. Preserves evidence from the original message.
+3. Checks that the evidence really exists in the source text.
+4. Groups related complaints by product, topic, and reporting period.
+5. Detects problems reported more than once.
+6. Compares the current period with a previous-period baseline.
+7. Creates prioritized investigation tasks.
+8. Marks urgent tasks for faster human review.
+9. Stores the complete run in PostgreSQL.
+
+Positive and neutral messages remain visible in the results, but they do not create complaint investigation tasks.
+
+## A realistic result
+
+Suppose the system receives these messages:
+
+```text
+“My sticker order arrived four days late, and I needed it for an event.”
+
+“The sticker package arrived two days late and missed our customer event.”
+
+“The sticker order arrived one day later than promised.”
+```
+
+Instead of leaving an operations manager to find and combine them manually, Feedback Investigator creates:
+
+```text
+Investigate delivery delay for Die-cut stickers
+
+Priority: High
+Urgent: Yes
+Current reports: 3
+Current share: 50.0%
+Previous share: 50.0%
+Change: 0.0 percentage points
+Trend: Unchanged
+
+Recommended next step:
+Compare promised delivery dates with dispatch and carrier
+tracking records before assigning a cause.
+```
+
+The task also keeps the original feedback IDs and exact supporting messages, allowing a reviewer to verify the finding.
+
+## What you can test
+
+The repository contains a complete local application:
+
+* A React and TypeScript reviewer dashboard
+* An editable fictional feedback dataset
 * A Go investigation engine
-* A GraphQL API
+* A typed GraphQL API
 * PostgreSQL persistence
-* A React and TypeScript review dashboard
-* A deterministic demo provider that works without an API key
-* The original n8n and GPT-5 mini workflow
-* Optional Slack and Gmail notifications in n8n
-* A complete Docker environment
-
-
----
-
-## ✨ What it does
-
-```text
-Customer feedback
-        ↓
-Topic and severity classification
-        ↓
-Exact evidence validation
-        ↓
-Recurring issue detection
-        ↓
-Current vs previous period comparison
-        ↓
-Priority and urgency calculation
-        ↓
-Investigation task creation
-        ↓
-PostgreSQL persistence
-        ↓
-GraphQL API and reviewer dashboard
-```
-
-The investigator currently recognizes:
-
-* 🚚 Delivery delays
-* 📦 Damaged packaging
-* 🖨️ Print quality problems
-* 🧲 Adhesion problems
-* 🎨 Artwork process issues
-* 💬 Other complaints
-* 👍 Positive feedback
-* ❓ Neutral questions
-
----
-
-## 🖥️ Reviewer dashboard
-
-The TypeScript dashboard provides an end-to-end demonstration of the agent.
-
-From the interface, a reviewer can:
-
-* Edit or replace the sample feedback dataset
-* Run the investigation
-* Review every classification
-* See severity and evidence-validation results
-* Inspect recurring issues
-* Compare current and previous periods
-* Review prioritized and urgent tasks
-* Read the evidence supporting each task
-* See the recommended operational action
-
-The complete application runs locally with Docker Compose.
-
-```text
-Dashboard:          http://localhost:3000
-GraphQL Playground: http://localhost:8080
-PostgreSQL:         localhost:5433
-```
-
----
-
-## 🧠 Why evidence validation matters
-
-The system does not automatically trust a model-generated result.
-
-For every classification, it verifies that:
-
-* The topic belongs to the allowed topic list
-* Severity is an integer from 0 to 3
-* Positive and neutral feedback has severity 0
-* Supporting evidence exists in the original customer message
-* Investigation tasks preserve the feedback IDs supporting the finding
-
-This prevents invented evidence from silently becoming an operational task.
-
----
-
-## 🔁 Recurring issue detection
-
-Feedback is grouped by:
-
-```text
-Product + Topic + Period
-```
-
-An investigation task is created when the same issue appears in at least two current-period messages for a product.
-
-Positive and neutral messages are preserved in the classification results but do not create investigation tasks.
-
-Every generated task contains:
-
-* A stable task key
-* Product and issue topic
-* Priority and status
-* Current and previous message totals
-* Current and previous feedback shares
-* Percentage-point change
-* Comparison status
-* Supporting feedback IDs
-* Exact supporting evidence
-* A recommended investigation action
-* Urgency status and reason
-
----
-
-## 📊 Period comparison
-
-The investigator compares current-period feedback with a previous-period baseline.
-
-It reports:
-
-* Current issue messages
-* Previous issue messages
-* Current product feedback total
-* Previous product feedback total
-* Current feedback share
-* Previous feedback share
-* Percentage-point change
-* Increasing, decreasing, unchanged, or no-baseline status
-
-> Percentages represent the share of uploaded feedback for that product. They are not defect rates or percentages of total customer orders.
-
----
-
-## 🚦 Priority and urgency
-
-The system calculates priority from the available feedback evidence.
-
-A task may become urgent when it includes signals such as:
-
-* 🔴 High priority
-* ⚠️ Severity 3 feedback
-* 🔁 Multiple current-period reports
-* 📈 A meaningful increase compared with the previous period
-
-The original n8n workflow can route urgent tasks to:
-
-* Slack
-* Gmail
-
-Both integrations are optional and require the tester’s own credentials.
-
----
-
-## 🏗️ Architecture
-
-```mermaid
-flowchart TD
-    UI["React + TypeScript Dashboard"]
-    API["Go GraphQL API"]
-    ENGINE["Investigation Engine"]
-    DB[("PostgreSQL")]
-    N8N["n8n AI Workflow"]
-
-    UI --> API
-    API --> ENGINE
-    ENGINE --> DB
-    N8N --> ENGINE
-```
-
-The project separates the interface, API, investigation logic, and storage layers.
-
-The Go service depends on a repository interface, allowing PostgreSQL to be replaced with an in-memory implementation during tests or local development.
-
----
-
-## 🛠️ Technology
-
-### Backend
-
-* Go
-* gqlgen
-* GraphQL
-* pgx
-* PostgreSQL
+* Current-versus-previous-period comparison
+* Evidence-backed investigation tasks
+* Docker Compose setup
 * Go unit tests
+* The original n8n and GPT-5 mini workflow
 
-### Frontend
+The default demo does not require an API key or access to company systems.
 
-* React
-* TypeScript
-* Vite
-* ESLint
-* Nginx
-
-### AI and automation
-
-* n8n
-* OpenAI GPT-5 mini
-* Structured Output Parser
-* JavaScript Code nodes
-* Slack integration
-* Gmail integration
-* CSV export
-
-### Infrastructure
-
-* Docker
-* Docker Compose
-* Multi-stage container builds
-* PostgreSQL health checks
-* Non-root API container
-
----
-
-## ▶️ Quick start with Docker
+## Run the application
 
 ### Requirements
 
-Install:
+You only need:
 
 * Git
 * Docker Desktop
 * Docker Compose
 
-No Go, Node.js, PostgreSQL, n8n, or API key is required to run the Docker demo.
-
-### 1. Clone the repository
+### Windows PowerShell
 
 ```powershell
 git clone https://github.com/kiraxo/feedback-investigator.git
 Set-Location ".\feedback-investigator"
-```
-
-### 2. Create the environment file
-
-On Windows PowerShell:
-
-```powershell
 Copy-Item ".\.env.example" ".\.env"
-```
-
-On macOS or Linux:
-
-```bash
-cp .env.example .env
-```
-
-### 3. Start the complete application
-
-```powershell
 docker compose up --build -d
 ```
 
-### 4. Open the dashboard
+### macOS or Linux
 
-```text
-http://localhost:3000
+```bash
+git clone https://github.com/kiraxo/feedback-investigator.git
+cd feedback-investigator
+cp .env.example .env
+docker compose up --build -d
 ```
 
-Click **Run investigation** to execute the included sample dataset.
+When the containers are ready, open:
 
-### 5. Open GraphQL Playground
+| Service            | Address                 |
+| ------------------ | ----------------------- |
+| Reviewer dashboard | `http://localhost:3000` |
+| GraphQL Playground | `http://localhost:8080` |
+| PostgreSQL         | `localhost:5433`        |
 
-```text
-http://localhost:8080
-```
+Click **Run investigation** in the dashboard to process the included dataset.
 
-### 6. Stop the application
+To stop the application:
 
-```powershell
+```bash
 docker compose down
 ```
 
-To also delete the local PostgreSQL development volume:
+To also remove the local database volume:
 
-```powershell
+```bash
 docker compose down -v
 ```
 
----
+## How the application is organized
 
-## 🧪 Deterministic demo mode
+```mermaid
+flowchart TD
+    A["Reviewer dashboard"] --> B["GraphQL API"]
+    B --> C["Investigation engine"]
+    C --> D[("PostgreSQL")]
+    C --> E["Classifications and tasks"]
+    E --> A
+```
 
-The default application uses a deterministic provider.
+The responsibilities are separated deliberately:
 
-This means reviewers can test the entire workflow immediately without:
+* **Frontend:** submits feedback and presents results for human review.
+* **GraphQL API:** provides typed operations for running and retrieving investigations.
+* **Investigation engine:** classifies feedback, validates evidence, groups issues, and creates tasks.
+* **Repository layer:** stores and retrieves completed agent runs.
+* **PostgreSQL:** preserves results after the API is restarted.
 
-* An OpenAI API key
-* Paid model usage
-* Access to private company systems
-* External customer data
-* A manually configured database
+The service can use an in-memory repository during testing or PostgreSQL during normal Docker operation.
 
-The deterministic provider follows documented topic, severity, recurrence, priority, and comparison rules.
+## Evidence before conclusions
 
-This makes the demo:
+A generated finding should be traceable to the customer who reported it.
 
-* Repeatable
-* Testable
-* Free to run
-* Easy to evaluate
-* Suitable for automated tests
+For every classification, the system checks:
 
-The provider boundary is designed so model-backed implementations can be added separately.
+* The topic belongs to the supported topic list.
+* Severity is an integer from 0 to 3.
+* Positive and neutral messages have severity 0.
+* Evidence appears in the original feedback text.
+* Generated tasks preserve the supporting feedback IDs.
 
-> OpenAI, Claude, Grok, and open-source live provider adapters are not yet implemented in the Go service. The included n8n workflow demonstrates the GPT-5 mini integration.
+If evidence cannot be verified, the result should not silently become an operational task.
 
----
+## Recurring issues and period comparison
 
-## 🔌 GraphQL API
+Feedback is grouped using:
 
-### Health query
+```text
+Product + Topic + Period
+```
+
+A task is created when at least two current-period messages report the same issue for the same product.
+
+For each recurring issue, the system calculates:
+
+| Metric                    | Meaning                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Current issue messages    | Reports of this issue in the current dataset         |
+| Current product messages  | All current feedback for the product                 |
+| Current share             | Issue reports as a share of current product feedback |
+| Previous issue messages   | Reports of the issue in the baseline period          |
+| Previous product messages | All baseline feedback for the product                |
+| Previous share            | Baseline issue share                                 |
+| Change                    | Difference between the two shares                    |
+| Comparison                | Increasing, decreasing, unchanged, or no baseline    |
+
+These percentages describe the uploaded feedback dataset. They are not product defect rates or percentages of total orders.
+
+## Demo mode and AI mode
+
+The Go application currently uses a deterministic demo provider.
+
+I chose this approach so that a reviewer can clone the repository and test the complete system without paying for model usage or configuring private credentials. It also makes the investigation rules repeatable and easy to test.
+
+The repository also contains the original n8n workflow, which uses GPT-5 mini for structured classification and includes optional Slack and Gmail notification steps.
+
+The Go service does not currently include live OpenAI, Claude, Grok, or open-source model adapters. Those providers are a future extension of the provider interface, not a feature claimed by the current demo.
+
+## Original n8n workflow
+
+The project began as an n8n workflow before being expanded into a full application.
+
+The workflow:
+
+1. Receives fictional customer feedback.
+2. Sends each message to GPT-5 mini.
+3. requests structured classification output.
+4. Validates evidence against the original text.
+5. Groups recurring problems.
+6. Compares reporting periods.
+7. Creates prioritized tasks.
+8. Routes urgent cases to optional Slack or Gmail nodes.
+9. Exports the final tasks as CSV.
+
+Import this file into n8n:
+
+```text
+n8n/feedback-investigator-workflow.json
+```
+
+To use the AI workflow, select your own OpenAI credential in the **OpenAI Chat Model** node. Slack and Gmail credentials are only required if you enable those optional notification nodes.
+
+### Workflow overview
+
+![Original n8n workflow](screenshots/workflow-overview.png)
+
+### Classification output
+
+![Classification output](screenshots/classification-output.png)
+
+### Investigation tasks
+
+![Investigation tasks](screenshots/tasks-output.png)
+
+## GraphQL example
+
+Check the API:
 
 ```graphql
 query {
@@ -334,28 +265,13 @@ query {
 }
 ```
 
-Example response:
-
-```json
-{
-  "data": {
-    "health": {
-      "status": "ok",
-      "service": "feedback-investigator-api",
-      "version": "0.2.0"
-    }
-  }
-}
-```
-
-### Retrieve a preserved agent run
+Retrieve a stored investigation:
 
 ```graphql
 query GetAgentRun($id: ID!) {
   agentRun(id: $id) {
     id
     status
-    mode
     provider
     feedbackCount
     startedAt
@@ -365,6 +281,10 @@ query GetAgentRun($id: ID!) {
       title
       priority
       urgent
+      supportingEvidence {
+        feedbackId
+        text
+      }
       metrics {
         currentIssueMessages
         currentSharePercentage
@@ -372,20 +292,17 @@ query GetAgentRun($id: ID!) {
         changePercentagePoints
         comparisonStatus
       }
+      recommendedAction
     }
   }
 }
 ```
 
-Completed runs can still be retrieved after restarting the API because they are stored in PostgreSQL.
+Completed runs remain available after restarting the API because they are stored in PostgreSQL.
 
----
+## Tests
 
-## ✅ Testing
-
-### Backend
-
-From the repository root:
+Run the backend tests:
 
 ```powershell
 Set-Location ".\backend"
@@ -393,18 +310,18 @@ go test ./... -v
 go vet ./...
 ```
 
-The test suite covers:
+The tests cover:
 
 * Recurring issue detection
-* Investigation task creation
+* Task creation
+* Evidence validity
 * Positive feedback handling
+* Period calculations
 * Empty dataset rejection
 * Unconfigured live-provider rejection
-* Evidence validity
-* Period comparison calculations
-* Run persistence behavior
+* Repository behavior
 
-### Frontend
+Check the frontend:
 
 ```powershell
 Set-Location ".\frontend"
@@ -413,170 +330,73 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
----
+## Technology choices
 
-## 🤖 Original n8n workflow
+| Area                 | Technology                     |
+| -------------------- | ------------------------------ |
+| Investigation engine | Go                             |
+| API                  | GraphQL with gqlgen            |
+| Database             | PostgreSQL with pgx            |
+| Dashboard            | React and TypeScript           |
+| Frontend tooling     | Vite and ESLint                |
+| Runtime              | Docker Compose                 |
+| Web server           | Nginx                          |
+| AI workflow          | n8n and GPT-5 mini             |
+| Notifications        | Optional Slack and Gmail nodes |
+| Export               | CSV                            |
 
-The original workflow remains included as an alternative visual implementation.
-
-It uses GPT-5 mini to:
-
-1. Read customer feedback
-2. Return structured classifications
-3. Validate exact evidence
-4. Group issues by product and topic
-5. Compare current and previous periods
-6. Create prioritized tasks
-7. Detect urgent cases
-8. Send optional notifications
-9. Export tasks as CSV
-
-### Run the n8n version
-
-1. Install or open n8n.
-2. Import:
+## Repository structure
 
 ```text
-n8n/feedback-investigator-workflow.json
+feedback-investigator/
+├── backend/
+│   ├── graph/                 GraphQL schema and resolvers
+│   └── internal/
+│       ├── agent/             Investigation logic
+│       └── storage/           PostgreSQL and memory repositories
+├── frontend/                  React and TypeScript dashboard
+├── migrations/                PostgreSQL migration
+├── n8n/                       Original AI workflow
+├── samples/                   Example task output
+├── screenshots/               Workflow and output images
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
-3. Open the **OpenAI Chat Model** node.
-4. Select your own OpenAI credential.
-5. Set the model to:
+## Current boundaries
 
-```text
-gpt-5-mini
-```
+This is a portfolio prototype built with fictional data.
 
-6. Configure Slack or Gmail only if you want notifications.
-7. Click **Execute Workflow**.
-8. Download the CSV from the final file-conversion node.
+It currently expects feedback to be supplied through the dashboard or GraphQL API. It does not automatically collect reviews from public websites or connect to a real support platform.
 
-Credentials are intentionally not included in this repository.
+A production version would need:
 
----
-
-## 📁 Repository contents
-
-| Path                                      | Purpose                                  |
-| ----------------------------------------- | ---------------------------------------- |
-| `backend/`                                | Go GraphQL API and investigation engine  |
-| `backend/internal/agent/`                 | Classification and task-generation logic |
-| `backend/internal/storage/`               | PostgreSQL and in-memory repositories    |
-| `backend/graph/`                          | GraphQL schema and resolvers             |
-| `frontend/`                               | React and TypeScript reviewer dashboard  |
-| `migrations/`                             | PostgreSQL database migration            |
-| `n8n/feedback-investigator-workflow.json` | Importable n8n workflow                  |
-| `samples/sample-investigation-tasks.csv`  | Example task report                      |
-| `screenshots/workflow-overview.png`       | Original n8n workflow                    |
-| `screenshots/classification-output.png`   | Classification output                    |
-| `screenshots/tasks-output.png`            | Investigation task output                |
-| `docker-compose.yml`                      | Complete local application stack         |
-| `.env.example`                            | Safe local configuration template        |
-
----
-
-## 🖼️ Original workflow
-
-### Workflow overview
-
-![Workflow overview](screenshots/workflow-overview.png)
-
-### Classification output
-
-![Classification output](screenshots/classification-output.png)
-
-### Investigation task output
-
-![Investigation task output](screenshots/tasks-output.png)
-
----
-
-## 📌 Example result
-
-A recurring issue can create a task such as:
-
-```text
-Task: Investigate delivery delay for Die-cut stickers
-Priority: High
-Urgent: Yes
-Current reports: 3
-Current share: 50.0%
-Previous share: 50.0%
-Change: 0.0 percentage points
-Comparison: Unchanged
-Recommended action:
-Compare promised delivery dates with dispatch and carrier
-tracking records before assigning a cause.
-```
-
-The task preserves the original feedback IDs and exact supporting evidence.
-
----
-
-## 🔐 Security and reliability
-
-* No API keys or service credentials are committed
-* Environment configuration uses `.env`
-* `.env` is excluded from Git
-* Docker secrets remain local
-* The API container runs as a non-root user
-* PostgreSQL is protected by configurable local credentials
-* GraphQL operations use typed inputs and outputs
-* The application rejects empty feedback datasets
-* Live providers are rejected unless explicitly configured
-* Evidence remains traceable to the source feedback
-
----
-
-## ⚠️ Current limitations
-
-This portfolio version uses fictional input data and a deterministic provider for public testing.
-
-A production deployment would additionally require:
-
-* Authentication and authorization
-* Rate limiting
+* Connectors for review, ecommerce, and support systems
+* Authentication and role-based authorization
 * Encrypted secret management
-* Organization-specific topic policies
-* Human approval workflows
-* Monitoring and alerting
-* Production migrations
-* Data retention policies
-* Personally identifiable information handling
 * Live model-provider adapters
-* Integration with internal order and support systems
+* Monitoring and evaluation metrics
+* Human approval and task-assignment workflows
+* Rate limiting and retry policies
+* Data-retention and privacy controls
 
----
+These boundaries are documented deliberately so that the demo does not claim capabilities it has not implemented.
 
-## 🚀 Project evolution
+## Why I built it
 
-This project began as an n8n AI workflow and was expanded into a testable application platform.
+I wanted to build something beyond a single model prompt.
 
-The repository demonstrates:
+The interesting part of this project is the work around the model: validating evidence, comparing periods, deciding when an issue is recurring, preserving results, exposing them through an API, and giving a human reviewer a usable interface.
 
-* Visual AI automation with n8n
-* Deterministic agent behavior
-* Evidence grounding
-* Go service development
-* GraphQL API design
-* PostgreSQL persistence
-* TypeScript interface development
-* Automated testing
-* Containerized local deployment
-* Clear operational documentation
+The project started as an n8n experiment and evolved into a Go, GraphQL, PostgreSQL, and TypeScript application that another developer can run locally with one command.
 
----
-
-## 👤 Author
+## Author
 
 **Khaireddine Slougui**
 
-GitHub: [github.com/kiraxo](https://github.com/kiraxo)
+[GitHub profile](https://github.com/kiraxo)
 
----
+## Disclaimer
 
-## 📄 Disclaimer
-
-This is an independent portfolio project.
-
+Feedback Investigator is an independent portfolio project. It is not connected to Sticker Mule or any other ecommerce company, does not access private company systems, and contains no real customer information.
