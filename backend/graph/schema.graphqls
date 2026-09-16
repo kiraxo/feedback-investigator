@@ -1,0 +1,145 @@
+enum FeedbackPeriod {
+  CURRENT
+  PREVIOUS
+}
+
+enum Topic {
+  DELIVERY_DELAY
+  DAMAGED_PACKAGING
+  PRINT_QUALITY
+  ADHESION
+  ARTWORK_PROCESS
+  OTHER
+  POSITIVE
+  NEUTRAL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+enum AgentMode {
+  DEMO
+  LIVE
+}
+
+enum ModelProvider {
+  DEMO
+  OPENAI
+  ANTHROPIC
+  GROK
+  OLLAMA
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+type Health {
+  status: String!
+  service: String!
+  version: String!
+}
+
+input FeedbackInput {
+  feedbackId: ID!
+  feedbackText: String!
+  product: String!
+  source: String!
+  occurredAt: String!
+  period: FeedbackPeriod!
+}
+
+input RunInvestigationInput {
+  feedback: [FeedbackInput!]!
+  mode: AgentMode! = DEMO
+  provider: ModelProvider! = DEMO
+}
+
+type Classification {
+  topic: Topic!
+  severity: Int!
+  evidence: String!
+  requiresInvestigation: Boolean!
+  evidenceValid: Boolean!
+}
+
+type FeedbackResult {
+  feedbackId: ID!
+  feedbackText: String!
+  product: String!
+  source: String!
+  occurredAt: String!
+  period: FeedbackPeriod!
+  classification: Classification!
+}
+
+type SupportingEvidence {
+  feedbackId: ID!
+  text: String!
+}
+
+type InvestigationMetrics {
+  currentIssueMessages: Int!
+  currentProductMessages: Int!
+  currentSharePercentage: Float!
+  previousIssueMessages: Int!
+  previousProductMessages: Int!
+  previousSharePercentage: Float
+  changePercentagePoints: Float
+  comparisonStatus: String!
+}
+
+type InvestigationTask {
+  id: ID!
+  taskKey: String!
+  title: String!
+  product: String!
+  topic: Topic!
+  priority: Priority!
+  status: TaskStatus!
+  reason: String!
+  metrics: InvestigationMetrics!
+  supportingEvidence: [SupportingEvidence!]!
+  recommendedAction: String!
+  urgent: Boolean!
+  urgentReason: String!
+  createdAt: String!
+}
+
+type AgentRun {
+  id: ID!
+  status: AgentRunStatus!
+  mode: AgentMode!
+  provider: ModelProvider!
+  feedbackCount: Int!
+  results: [FeedbackResult!]!
+  tasks: [InvestigationTask!]!
+  startedAt: String!
+  completedAt: String
+  errorMessage: String
+}
+
+type Query {
+  health: Health!
+  agentRun(id: ID!): AgentRun
+  agentRuns(limit: Int = 20): [AgentRun!]!
+  investigationTasks(runId: ID): [InvestigationTask!]!
+}
+
+type Mutation {
+  runInvestigation(input: RunInvestigationInput!): AgentRun!
+}
