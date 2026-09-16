@@ -1,8 +1,16 @@
 package graph
 
-// This file will not be regenerated automatically.
-//
-// It serves as dependency injection for your app, add any dependencies you require
-// here.
+import (
+	"github.com/kiraxo/feedback-investigator/backend/internal/agent"
+)
 
-type Resolver struct{}
+// Resolver contains the application dependencies used by GraphQL.
+type Resolver struct {
+	AgentService *agent.Service
+}
+
+func NewResolver() *Resolver {
+	return &Resolver{
+		AgentService: agent.NewService(),
+	}
+}
