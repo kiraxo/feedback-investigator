@@ -1,36 +1,53 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/kiraxo/feedback-investigator/backend/graph/model"
+	"github.com/kiraxo/feedback-investigator/backend/internal/storage"
 )
 
-// Service executes investigations and keeps completed runs in memory.
-// PostgreSQL will replace this in-memory storage in the next phase.
+// Service executes investigations and persists completed runs.
 type Service struct {
-	mu    sync.RWMutex
-	runs  map[string]*model.AgentRun
-	order []string
+	repository storage.RunRepository
 }
 
-func NewService() *Service {
+// NewService uses an in-memory repository by default.
+// A PostgreSQL repository can be supplied by the server.
+func NewService(
+	repositories ...storage.RunRepository,
+) *Service {
+	var repository storage.RunRepository
+
+	if len(repositories) > 0 && repositories[0] != nil {
+		repository = repositories[0]
+	} else {
+		repository = storage.NewMemoryRepository()
+	}
+
 	return &Service{
-		runs:  make(map[string]*model.AgentRun),
-		order: make([]string, 0),
+		repository: repository,
 	}
 }
 
-func (s *Service) Run(input model.RunInvestigationInput) (*model.AgentRun, error) {
+func (s *Service) Run(
+	ctx context.Context,
+	input model.RunInvestigationInput,
+) (*model.AgentRun, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	if len(input.Feedback) == 0 {
 		return nil, errors.New("at least one feedback item is required")
 	}
 
-	if input.Mode != model.AgentModeDemo || input.Provider != model.ModelProviderDemo {
+	if input.Mode != model.AgentModeDemo ||
+		input.Provider != model.ModelProviderDemo {
 		return nil, fmt.Errorf(
 			"provider %s in %s mode is not configured yet; use DEMO mode with the DEMO provider",
 			input.Provider,
@@ -52,12 +69,22 @@ func (s *Service) Run(input model.RunInvestigationInput) (*model.AgentRun, error
 	}
 
 	for index, item := range input.Feedback {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		if item == nil {
-			return nil, fmt.Errorf("feedback item at index %d is null", index)
+			return nil, fmt.Errorf(
+				"feedback item at index %d is null",
+				index,
+			)
 		}
 
 		if item.FeedbackID == "" {
-			return nil, fmt.Errorf("feedback item at index %d has no feedbackId", index)
+			return nil, fmt.Errorf(
+				"feedback item at index %d has no feedbackId",
+				index,
+			)
 		}
 
 		if item.FeedbackText == "" {
@@ -93,61 +120,38 @@ func (s *Service) Run(input model.RunInvestigationInput) (*model.AgentRun, error
 	run.CompletedAt = &completed
 	run.Status = model.AgentRunStatusCompleted
 
-	s.mu.Lock()
-	s.runs[run.ID] = run
-	s.order = append([]string{run.ID}, s.order...)
-	s.mu.Unlock()
+	if err := s.repository.Save(ctx, run); err != nil {
+		return nil, fmt.Errorf("save agent run: %w", err)
+	}
 
 	return run, nil
 }
 
-func (s *Service) GetRun(id string) (*model.AgentRun, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	run, found := s.runs[id]
-	return run, found
+func (s *Service) GetRun(
+	ctx context.Context,
+	id string,
+) (*model.AgentRun, bool, error) {
+	return s.repository.Get(ctx, id)
 }
 
-func (s *Service) ListRuns(limit int) []*model.AgentRun {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if limit <= 0 {
-		limit = 20
-	}
-
-	if limit > len(s.order) {
-		limit = len(s.order)
-	}
-
-	runs := make([]*model.AgentRun, 0, limit)
-
-	for _, id := range s.order[:limit] {
-		runs = append(runs, s.runs[id])
-	}
-
-	return runs
+func (s *Service) ListRuns(
+	ctx context.Context,
+	limit int,
+) ([]*model.AgentRun, error) {
+	return s.repository.List(ctx, limit)
 }
 
-func (s *Service) ListTasks(runID *string) []*model.InvestigationTask {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *Service) ListTasks(
+	ctx context.Context,
+	runID *string,
+) ([]*model.InvestigationTask, error) {
+	return s.repository.ListTasks(ctx, runID)
+}
 
-	if runID != nil {
-		run, found := s.runs[*runID]
-		if !found {
-			return []*model.InvestigationTask{}
-		}
+func (s *Service) Ping(ctx context.Context) error {
+	return s.repository.Ping(ctx)
+}
 
-		return run.Tasks
-	}
-
-	tasks := make([]*model.InvestigationTask, 0)
-
-	for _, id := range s.order {
-		tasks = append(tasks, s.runs[id].Tasks...)
-	}
-
-	return tasks
+func (s *Service) Close() {
+	s.repository.Close()
 }

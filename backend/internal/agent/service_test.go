@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kiraxo/feedback-investigator/backend/graph/model"
@@ -8,6 +9,7 @@ import (
 
 func TestRunDemoCreatesRecurringInvestigationTask(t *testing.T) {
 	service := NewService()
+	ctx := context.Background()
 
 	input := model.RunInvestigationInput{
 		Mode:     model.AgentModeDemo,
@@ -56,7 +58,7 @@ func TestRunDemoCreatesRecurringInvestigationTask(t *testing.T) {
 		},
 	}
 
-	run, err := service.Run(input)
+	run, err := service.Run(ctx, input)
 	if err != nil {
 		t.Fatalf("Run returned an unexpected error: %v", err)
 	}
@@ -179,7 +181,14 @@ func TestRunDemoCreatesRecurringInvestigationTask(t *testing.T) {
 		t.Error("expected the run to have a completion time")
 	}
 
-	storedRun, found := service.GetRun(run.ID)
+	storedRun, found, err := service.GetRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf(
+			"GetRun returned an unexpected error: %v",
+			err,
+		)
+	}
+
 	if !found {
 		t.Fatal("expected the completed run to be stored")
 	}
@@ -195,21 +204,25 @@ func TestRunDemoCreatesRecurringInvestigationTask(t *testing.T) {
 
 func TestPositiveFeedbackDoesNotCreateTask(t *testing.T) {
 	service := NewService()
+	ctx := context.Background()
 
-	run, err := service.Run(model.RunInvestigationInput{
-		Mode:     model.AgentModeDemo,
-		Provider: model.ModelProviderDemo,
-		Feedback: []*model.FeedbackInput{
-			{
-				FeedbackID:   "FB-POSITIVE",
-				FeedbackText: "The stickers look excellent and arrived on time.",
-				Product:      "Die-cut stickers",
-				Source:       "Demo review",
-				OccurredAt:   "2026-09-12",
-				Period:       model.FeedbackPeriodCurrent,
+	run, err := service.Run(
+		ctx,
+		model.RunInvestigationInput{
+			Mode:     model.AgentModeDemo,
+			Provider: model.ModelProviderDemo,
+			Feedback: []*model.FeedbackInput{
+				{
+					FeedbackID:   "FB-POSITIVE",
+					FeedbackText: "The stickers look excellent and arrived on time.",
+					Product:      "Die-cut stickers",
+					Source:       "Demo review",
+					OccurredAt:   "2026-09-12",
+					Period:       model.FeedbackPeriodCurrent,
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		t.Fatalf("Run returned an unexpected error: %v", err)
 	}
@@ -244,11 +257,15 @@ func TestPositiveFeedbackDoesNotCreateTask(t *testing.T) {
 
 func TestRunRejectsEmptyFeedback(t *testing.T) {
 	service := NewService()
+	ctx := context.Background()
 
-	_, err := service.Run(model.RunInvestigationInput{
-		Mode:     model.AgentModeDemo,
-		Provider: model.ModelProviderDemo,
-	})
+	_, err := service.Run(
+		ctx,
+		model.RunInvestigationInput{
+			Mode:     model.AgentModeDemo,
+			Provider: model.ModelProviderDemo,
+		},
+	)
 
 	if err == nil {
 		t.Fatal("expected empty feedback to be rejected")
@@ -257,21 +274,25 @@ func TestRunRejectsEmptyFeedback(t *testing.T) {
 
 func TestRunRejectsUnconfiguredLiveProvider(t *testing.T) {
 	service := NewService()
+	ctx := context.Background()
 
-	_, err := service.Run(model.RunInvestigationInput{
-		Mode:     model.AgentModeLive,
-		Provider: model.ModelProviderOpenai,
-		Feedback: []*model.FeedbackInput{
-			{
-				FeedbackID:   "FB-001",
-				FeedbackText: "The order arrived late.",
-				Product:      "Die-cut stickers",
-				Source:       "Demo review",
-				OccurredAt:   "2026-09-10",
-				Period:       model.FeedbackPeriodCurrent,
+	_, err := service.Run(
+		ctx,
+		model.RunInvestigationInput{
+			Mode:     model.AgentModeLive,
+			Provider: model.ModelProviderOpenai,
+			Feedback: []*model.FeedbackInput{
+				{
+					FeedbackID:   "FB-001",
+					FeedbackText: "The order arrived late.",
+					Product:      "Die-cut stickers",
+					Source:       "Demo review",
+					OccurredAt:   "2026-09-10",
+					Period:       model.FeedbackPeriodCurrent,
+				},
 			},
 		},
-	})
+	)
 
 	if err == nil {
 		t.Fatal("expected an unconfigured live provider to be rejected")

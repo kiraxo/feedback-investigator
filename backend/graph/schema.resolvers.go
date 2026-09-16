@@ -11,17 +11,23 @@ func (r *mutationResolver) RunInvestigation(
 	ctx context.Context,
 	input model.RunInvestigationInput,
 ) (*model.AgentRun, error) {
-	return r.AgentService.Run(input)
+	return r.AgentService.Run(ctx, input)
 }
 
-// Health reports whether the GraphQL service is available.
+// Health reports whether the API and its configured repository are available.
 func (r *queryResolver) Health(
 	ctx context.Context,
 ) (*model.Health, error) {
+	status := "ok"
+
+	if err := r.AgentService.Ping(ctx); err != nil {
+		status = "degraded"
+	}
+
 	return &model.Health{
-		Status:  "ok",
+		Status:  status,
 		Service: "feedback-investigator-api",
-		Version: "0.1.0",
+		Version: "0.2.0",
 	}, nil
 }
 
@@ -30,7 +36,10 @@ func (r *queryResolver) AgentRun(
 	ctx context.Context,
 	id string,
 ) (*model.AgentRun, error) {
-	run, found := r.AgentService.GetRun(id)
+	run, found, err := r.AgentService.GetRun(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
 	if !found {
 		return nil, nil
@@ -54,7 +63,7 @@ func (r *queryResolver) AgentRuns(
 		selectedLimit = 100
 	}
 
-	return r.AgentService.ListRuns(selectedLimit), nil
+	return r.AgentService.ListRuns(ctx, selectedLimit)
 }
 
 // InvestigationTasks returns tasks from one run or all stored runs.
@@ -62,7 +71,7 @@ func (r *queryResolver) InvestigationTasks(
 	ctx context.Context,
 	runID *string,
 ) ([]*model.InvestigationTask, error) {
-	return r.AgentService.ListTasks(runID), nil
+	return r.AgentService.ListTasks(ctx, runID)
 }
 
 // Mutation returns the MutationResolver implementation.

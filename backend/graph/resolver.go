@@ -9,8 +9,14 @@ type Resolver struct {
 	AgentService *agent.Service
 }
 
-func NewResolver() *Resolver {
+func NewResolver(
+	agentService *agent.Service,
+) *Resolver {
+	if agentService == nil {
+		agentService = agent.NewService()
+	}
+
 	return &Resolver{
-		AgentService: agent.NewService(),
+		AgentService: agentService,
 	}
 }

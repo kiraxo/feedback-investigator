@@ -1,0 +1,25 @@
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Go outputs
+backend/feedback-investigator-api
+backend/feedback-investigator-api.exe
+backend/coverage.out
+
+# TypeScript outputs
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
