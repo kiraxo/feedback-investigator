@@ -397,6 +397,3 @@ The project started as an n8n experiment and evolved into a Go, GraphQL, Postgre
 
 [GitHub profile](https://github.com/kiraxo)
 
-## Disclaimer
-
-Feedback Investigator is an independent portfolio project. It is not connected to Sticker Mule or any other ecommerce company, does not access private company systems, and contains no real customer information.
